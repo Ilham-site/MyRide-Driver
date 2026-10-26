@@ -25,18 +25,23 @@
       <h1 class="text-xl font-bold tracking-wide text-white">MyRide <span class="text-xs bg-amber-500 text-gray-900 px-2 py-0.5 rounded font-black">DRIVER</span></h1>
     </div>
 
-    <!-- Online/Offline Toggle -->
+    <!-- Online/Offline & Logout -->
     <div class="flex items-center space-x-3">
       <button id="loginBtn" onclick="googleLogin()" class="bg-amber-400 text-gray-900 font-bold px-3 py-1.5 rounded-lg text-xs hover:bg-amber-300">
-        <i class="fa-brands fa-google mr-1"></i> Log Masuk Google
+        <i class="fa-brands fa-google mr-1"></i> Log Masuk
       </button>
 
-      <div id="statusToggleContainer" class="hidden flex items-center space-x-2 bg-gray-700 px-3 py-1.5 rounded-full border border-gray-600">
-        <span id="statusLabel" class="text-xs font-bold text-red-400">OFFLINE</span>
-        <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" id="driverStatusToggle" onchange="toggleOnlineStatus()" class="sr-only peer">
-          <div class="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
-        </label>
+      <div id="statusToggleContainer" class="hidden flex items-center space-x-3">
+        <div class="flex items-center space-x-2 bg-gray-700 px-3 py-1.5 rounded-full border border-gray-600">
+          <span id="statusLabel" class="text-xs font-bold text-red-400">OFFLINE</span>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="driverStatusToggle" onchange="toggleOnlineStatus()" class="sr-only peer">
+            <div class="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+          </label>
+        </div>
+        <button onclick="googleLogout()" class="bg-rose-700 border border-rose-500 text-white px-3 py-1.5 rounded-lg text-xs hover:bg-rose-600">
+          <i class="fa-solid fa-right-from-bracket"></i>
+        </button>
       </div>
     </div>
   </nav>
@@ -62,7 +67,7 @@
       </div>
     </div>
 
-    <!-- Active Job Panel (If Driver Accepted an Order) -->
+    <!-- Active Job Panel -->
     <div id="activeJobSection" class="hidden bg-gray-800 border-2 border-amber-400 p-5 rounded-xl space-y-4 shadow-xl">
       <div class="flex justify-between items-center border-b border-gray-700 pb-2">
         <h2 class="font-bold text-amber-400 text-sm"><i class="fa-solid fa-car-on mr-1"></i> TUGASAN AKTIF</h2>
@@ -70,45 +75,40 @@
       </div>
 
       <!-- Customer Info -->
-      <div class="flex items-center space-x-3 bg-gray-700/50 p-3 rounded-lg">
-        <img id="custPhoto" src="" class="w-10 h-10 rounded-full border">
+      <div class="flex items-center space-x-3 bg-gray-700/50 p-3 rounded-lg border border-gray-600">
+        <img id="custPhoto" src="" class="w-12 h-12 rounded-full border-2 border-gray-500">
         <div>
           <h3 id="custName" class="font-bold text-sm text-white">Nama Pelanggan</h3>
-          <p id="custNotes" class="text-xs text-gray-300 italic">"Tiada pesanan khas"</p>
+          <p id="custNotes" class="text-xs text-gray-400 italic mt-0.5">"Tiada pesanan khas"</p>
         </div>
       </div>
 
       <!-- Route Info -->
-      <div class="space-y-1 text-xs text-gray-300">
+      <div class="space-y-1 text-xs text-gray-300 bg-gray-900/50 p-3 rounded border border-gray-700">
         <p><strong class="text-emerald-400">Pick Up:</strong> <span id="jobPickup"></span></p>
         <p><strong class="text-rose-400">Drop Off:</strong> <span id="jobDropoff"></span></p>
-        <p><strong class="text-amber-400">Bayaran:</strong> <span id="jobPrice" class="text-sm font-bold text-amber-400"></span> (<span id="jobPayment"></span>)</p>
+        <p><strong class="text-amber-400">Bayaran:</strong> <span id="jobPrice" class="text-sm font-bold text-amber-400"></span> (<span id="jobPayment" class="uppercase"></span>)</p>
       </div>
 
       <!-- Action Buttons for Ongoing Job -->
       <div class="space-y-2 pt-2">
-        <!-- Open Maps Navigation Button -->
         <button onclick="openOpenStreetMapNavigation()" class="w-full bg-blue-600 text-white py-2.5 rounded-lg text-xs font-bold hover:bg-blue-500 transition">
-          <i class="fa-solid fa-map-location-dot mr-1"></i> Buka OpenStreetMap & Navigate ke Drop Off
+          <i class="fa-solid fa-map-location-dot mr-1"></i> Buka Peta Laluan (Pick Up ke Drop Off)
         </button>
 
-        <!-- Driver Arrived Button -->
         <button id="btnArrived" onclick="markArrived()" class="w-full bg-amber-500 text-gray-900 py-2.5 rounded-lg text-xs font-bold hover:bg-amber-400">
-          <i class="fa-solid fa-bullhorn mr-1"></i> Dah Sampai kat Tempat Pick Up (Hantar Mesej)
+          <i class="fa-solid fa-bullhorn mr-1"></i> Dah Sampai kat Tempat Pick Up
         </button>
 
-        <!-- Start Trip Button -->
         <button id="btnStartTrip" onclick="startTrip()" class="hidden w-full bg-emerald-600 text-white py-2.5 rounded-lg text-xs font-bold hover:bg-emerald-500">
           <i class="fa-solid fa-play mr-1"></i> Mulakan Perjalanan
         </button>
 
-        <!-- Complete Trip Button -->
         <button id="btnCompleteTrip" onclick="completeTrip()" class="hidden w-full bg-indigo-600 text-white py-2.5 rounded-lg text-xs font-bold hover:bg-indigo-500">
-          <i class="fa-solid fa-check-double mr-1"></i> Customer Selesai Bayar / Tamat Perjalanan
+          <i class="fa-solid fa-check-double mr-1"></i> Selesai Perjalanan & Bayaran Diterima
         </button>
 
-        <!-- Report Fake/Scam Order Button -->
-        <button onclick="reportFakeOrder()" class="w-full bg-red-900/50 text-red-300 border border-red-700 py-2 rounded-lg text-xs font-bold">
+        <button onclick="reportFakeOrder()" class="w-full bg-red-900/50 text-red-300 border border-red-700 py-2 rounded-lg text-xs font-bold hover:bg-red-900/80">
           <i class="fa-solid fa-shield-cat mr-1"></i> Laporkan Fake / Scam Order
         </button>
       </div>
@@ -117,13 +117,13 @@
     <!-- Incoming Orders List Section -->
     <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 space-y-3">
       <div class="flex justify-between items-center border-b border-gray-700 pb-2">
-        <h3 class="font-bold text-white text-sm"><i class="fa-solid fa-bell text-amber-400 mr-2"></i> Tempahan Masuk (Berdekatan)</h3>
+        <h3 class="font-bold text-white text-sm"><i class="fa-solid fa-bell text-amber-400 mr-2"></i> Tempahan Masuk</h3>
         <span id="orderCountBadge" class="bg-gray-700 text-xs px-2 py-0.5 rounded-full text-gray-300">0 Permintaan</span>
       </div>
 
       <div id="incomingOrdersList" class="space-y-3">
         <div id="noOrdersMsg" class="text-center py-8 text-gray-500 text-xs">
-          Sila tukar status ke <strong class="text-emerald-400">ONLINE</strong> untuk menerima tempahan.
+          Sila tukar status ke <strong class="text-emerald-400">ONLINE</strong>.
         </div>
       </div>
     </div>
@@ -138,44 +138,78 @@
 
   </div>
 
+  <!-- Modal First Time Driver Registration -->
+  <div id="firstTimeDriverModal" class="hidden fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
+    <div class="bg-gray-800 border border-gray-700 p-6 rounded-2xl shadow-2xl w-full max-w-sm space-y-4">
+      <h2 class="text-lg font-bold text-amber-400 text-center">Profil Pemandu (Kali Pertama)</h2>
+      <p class="text-[10px] text-gray-400 text-center mb-4">Sila daftarkan maklumat kenderaan anda. Data ini akan dipaparkan kepada pelanggan.</p>
+      
+      <div>
+        <label class="text-xs font-bold text-gray-300 block mb-1">Model Kenderaan</label>
+        <input type="text" id="regCarModel" class="w-full p-2 border border-gray-600 rounded-lg bg-gray-700 text-white text-sm focus:border-amber-400 focus:outline-none" placeholder="Cth: Perodua Myvi, Bezza...">
+      </div>
+      <div>
+        <label class="text-xs font-bold text-gray-300 block mb-1">Warna Kenderaan</label>
+        <input type="text" id="regCarColor" class="w-full p-2 border border-gray-600 rounded-lg bg-gray-700 text-white text-sm focus:border-amber-400 focus:outline-none" placeholder="Cth: Merah, Putih...">
+      </div>
+      <div>
+        <label class="text-xs font-bold text-gray-300 block mb-1">Nombor Plat</label>
+        <input type="text" id="regCarPlate" class="w-full p-2 border border-gray-600 rounded-lg bg-gray-700 text-white text-sm focus:border-amber-400 focus:outline-none uppercase" placeholder="Cth: VAA 1234">
+      </div>
+      
+      <button onclick="saveDriverProfile()" class="w-full bg-amber-500 text-gray-900 font-bold py-2.5 rounded-lg hover:bg-amber-400 mt-2 shadow-lg">Simpan Profil Kenderaan</button>
+    </div>
+  </div>
+
   <script>
     // -----------------------------------------------------------------
     // 1. FIREBASE CONFIGURATION
     // -----------------------------------------------------------------
     const firebaseConfig = {
-  apiKey: "AIzaSyCs1CgbGUbfU8Jf4Vfo7dKAwWeq5aaIXa0",
-  authDomain: "myride-ukm.firebaseapp.com",
-  databaseURL: "https://myride-ukm-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "myride-ukm",
-  storageBucket: "myride-ukm.firebasestorage.app",
-  messagingSenderId: "1061449285461",
-  appId: "1:1061449285461:web:1e59658f8ce8ccfe4df9dc",
-  measurementId: "G-XR8533MHRB"
-};
+      apiKey: "AIzaSyCs1CgbGUbfU8Jf4Vfo7dKAwWeq5aaIXa0",
+      authDomain: "myride-ukm.firebaseapp.com",
+      databaseURL: "https://myride-ukm-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "myride-ukm",
+      storageBucket: "myride-ukm.firebasestorage.app",
+      messagingSenderId: "1061449285461",
+      appId: "1:1061449285461:web:1e59658f8ce8ccfe4df9dc",
+      measurementId: "G-XR8533MHRB"
+    };
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
 
+    // Webhook URL untuk Google Sheets History (Driver)
+    const GOOGLE_SHEET_WEBHOOK_URL = "YOUR_GOOGLE_APPS_SCRIPT_WEBAPP_URL"; 
+
     // Driver State
     let currentDriver = null;
     let isOnline = false;
-    let driverLocation = { lat: 2.9289, lng: 101.7801 }; // Simulated Driver Position (e.g. UKM Area)
+    let isBusy = false; // Check if driver already has an active customer
+    let driverProfileData = null; // Store car model/plate
+    
     let incomingOrdersListener = null;
     let currentActiveJobDocId = null;
     let autoCancelTimer = null;
+
+    // Lokasi Default Simulasi Pemandu
+    let driverLocation = { lat: 2.9289, lng: 101.7801 }; 
 
     // Stats
     let totalIncomingOrders = 0;
     let totalAcceptedOrders = 0;
 
     // -----------------------------------------------------------------
-    // 2. AUTHENTICATION & DRIVER PROFILE
+    // 2. AUTHENTICATION & DRIVER PROFILE (FIRST TIME LOG IN)
     // -----------------------------------------------------------------
     function googleLogin() {
       const provider = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider).then(res => {
-        currentDriver = res.user;
-        initDriverProfile();
+      auth.signInWithPopup(provider).catch(err => alert("Ralat Log Masuk: " + err.message));
+    }
+
+    function googleLogout() {
+      auth.signOut().then(() => {
+        location.reload();
       });
     }
 
@@ -190,26 +224,45 @@
       document.getElementById('loginBtn').classList.add('hidden');
       document.getElementById('statusToggleContainer').classList.remove('hidden');
 
-      // Sync driver data
       const userRef = db.collection('users').doc(currentDriver.uid);
       const doc = await userRef.get();
 
-      if (!doc.exists) {
-        await userRef.set({
-          uid: currentDriver.uid,
-          name: currentDriver.displayName,
-          email: currentDriver.email,
-          role: 'driver',
-          totalOrders: 0,
-          acceptedOrders: 0
-        });
+      if (!doc.exists || !doc.data().carPlate) {
+        // Papar Modal Jika Kali Pertama atau Data Kereta Kosong
+        document.getElementById('firstTimeDriverModal').classList.remove('hidden');
       } else {
-        const data = doc.data();
-        totalIncomingOrders = data.totalOrders || 0;
-        totalAcceptedOrders = data.acceptedOrders || 0;
+        driverProfileData = doc.data();
+        totalIncomingOrders = driverProfileData.totalOrders || 0;
+        totalAcceptedOrders = driverProfileData.acceptedOrders || 0;
         updateAcceptanceRateUI();
+        loadDriverHistory();
       }
+    }
 
+    async function saveDriverProfile() {
+      const model = document.getElementById('regCarModel').value;
+      const color = document.getElementById('regCarColor').value;
+      const plate = document.getElementById('regCarPlate').value.toUpperCase();
+
+      if (!model || !color || !plate) return alert("Sila lengkapkan semua maklumat kenderaan!");
+
+      const data = {
+        uid: currentDriver.uid,
+        name: currentDriver.displayName,
+        email: currentDriver.email,
+        role: 'driver',
+        carModel: `${model} (${color})`,
+        carPlate: plate,
+        totalOrders: 0,
+        acceptedOrders: 0
+      };
+
+      await db.collection('users').doc(currentDriver.uid).set(data, { merge: true });
+      driverProfileData = data;
+      
+      document.getElementById('firstTimeDriverModal').classList.add('hidden');
+      alert("Profil kenderaan berjaya disimpan!");
+      updateAcceptanceRateUI();
       loadDriverHistory();
     }
 
@@ -231,11 +284,12 @@
         document.getElementById('incomingOrdersList').innerHTML = `
           <div class="text-center py-8 text-gray-500 text-xs">Anda berada dalam mod OFFLINE.</div>
         `;
+        document.getElementById('orderCountBadge').innerText = `0 Permintaan`;
       }
     }
 
     // -----------------------------------------------------------------
-    // 4. LISTEN FOR NEARBY ORDERS (Radius < 2km & Expanded Range)
+    // 4. PENGAGIHAN PESANAN (TIDAK MASUK JIKA SIBUK / REJECT)
     // -----------------------------------------------------------------
     function listenForOrders() {
       if (incomingOrdersListener) incomingOrdersListener();
@@ -244,60 +298,62 @@
         .where('status', '==', 'SEARCHING')
         .onSnapshot(snapshot => {
           const list = document.getElementById('incomingOrdersList');
-          document.getElementById('orderCountBadge').innerText = `${snapshot.size} Permintaan`;
+          
+          // Jika pemandu sedang sibuk (ada active job), sembunyikan senarai order baru
+          if (isBusy || currentActiveJobDocId != null) {
+            list.innerHTML = `<div class="text-center py-8 text-emerald-400 text-xs font-bold">Anda sedang dalam tugasan aktif. Selesaikan tugasan dahulu.</div>`;
+            document.getElementById('orderCountBadge').innerText = `Sibuk`;
+            return;
+          }
 
           if (snapshot.empty) {
             list.innerHTML = `<div class="text-center py-8 text-gray-500 text-xs">Tiada tempahan berdekatan buat masa ini.</div>`;
+            document.getElementById('orderCountBadge').innerText = `0 Permintaan`;
             return;
           }
 
           let html = '';
+          let visibleOrders = 0;
+
           snapshot.forEach(doc => {
             const order = doc.data();
             const orderId = doc.id;
 
-            // Kira jarak driver ke lokasi pickup customer
-            const distToPickup = calculateDistance(
-              driverLocation.lat, driverLocation.lng,
-              order.pickupLat, order.pickupLng
-            );
+            // FILTER: Jika pemandu dah tekan Reject, order ni masuk rejectedBy array. Jangan tunjuk.
+            if (order.rejectedBy && order.rejectedBy.includes(currentDriver.uid)) return;
 
-            // SYARAT BIZ: Maksimum 2km dari tempat pickup KECUALI customer aktifkan expandedSearch
+            // Kira jarak driver ke lokasi pickup customer (Simulasi 2km)
+            const distToPickup = calculateDistance(driverLocation.lat, driverLocation.lng, order.pickupLat, order.pickupLng);
+
+            // Tunjuk jika dalam 2km ATAU customer tekan luaskan pencarian
             if (distToPickup <= 2.0 || order.expandedSearch === true) {
+              visibleOrders++;
               
-              const isNego = order.negotiatedPrice !== null && order.negotiatedPrice !== undefined;
-
               html += `
-                <div class="bg-gray-700/60 p-4 rounded-xl border border-gray-600 space-y-3">
+                <div class="bg-gray-700/60 p-4 rounded-xl border border-gray-600 space-y-3 shadow-md">
                   <div class="flex justify-between items-start">
                     <div>
-                      <span class="text-[10px] bg-indigo-900 text-indigo-200 px-2 py-0.5 rounded font-bold">${distToPickup.toFixed(2)} km dari anda</span>
+                      <span class="text-[10px] bg-indigo-900 text-indigo-200 px-2 py-0.5 rounded font-bold">${order.isOutUkm ? 'Luar UKM' : 'Dalam UKM'}</span>
                       <h4 class="font-bold text-white text-sm mt-1">${order.customerName}</h4>
                     </div>
                     <div class="text-right">
-                      <span class="text-xs text-gray-400 block">${order.paymentMethod.toUpperCase()}</span>
-                      <span class="text-base font-black text-amber-400">RM ${order.finalPrice.toFixed(2)}</span>
+                      <span class="text-[10px] text-gray-400 block">${order.paymentMethod.toUpperCase()}</span>
+                      <span class="text-lg font-black text-amber-400">RM ${order.originalPrice.toFixed(2)}</span>
                     </div>
                   </div>
 
                   <div class="text-xs space-y-1 text-gray-300">
                     <p>📍 <strong>Pick Up:</strong> ${order.pickupAddress}</p>
                     <p>🏁 <strong>Drop Off:</strong> ${order.dropoffAddress}</p>
-                    ${order.notes ? `<p class="italic text-gray-400">💬 "${order.notes}"</p>` : ''}
+                    ${order.notes ? `<p class="italic text-amber-200 bg-amber-900/30 p-1.5 rounded mt-1">💬 "${order.notes}"</p>` : ''}
                   </div>
 
-                  ${isNego ? `
-                    <div class="bg-amber-900/40 border border-amber-600 p-2 rounded text-xs text-amber-200">
-                      ⚠️ Customer minta tawar harga: <strong>RM ${order.negotiatedPrice.toFixed(2)}</strong> (Asal: RM ${order.originalPrice.toFixed(2)})
-                    </div>
-                  ` : ''}
-
                   <!-- Decision Buttons -->
-                  <div class="grid grid-cols-2 gap-2 pt-1">
-                    <button onclick="rejectOrder('${orderId}')" class="bg-gray-600 hover:bg-gray-500 text-white py-2 rounded-lg text-xs font-bold">
+                  <div class="grid grid-cols-2 gap-2 pt-2">
+                    <button onclick="rejectOrder('${orderId}')" class="bg-gray-600 hover:bg-gray-500 text-white py-2 rounded-lg text-xs font-bold shadow">
                       Reject
                     </button>
-                    <button onclick="acceptOrder('${orderId}', ${isNego})" class="bg-emerald-500 hover:bg-emerald-400 text-gray-900 py-2 rounded-lg text-xs font-black">
+                    <button onclick="acceptOrder('${orderId}', ${order.originalPrice})" class="bg-emerald-500 hover:bg-emerald-400 text-gray-900 py-2 rounded-lg text-xs font-black shadow">
                       Accept
                     </button>
                   </div>
@@ -306,11 +362,11 @@
             }
           });
 
-          list.innerHTML = html || `<div class="text-center py-8 text-gray-500 text-xs">Tiada tempahan dalam radius 2km dari lokasi anda.</div>`;
+          document.getElementById('orderCountBadge').innerText = `${visibleOrders} Permintaan`;
+          list.innerHTML = html || `<div class="text-center py-8 text-gray-500 text-xs">Tiada tempahan baru.</div>`;
         });
     }
 
-    // Formula Haversine ringkas
     function calculateDistance(lat1, lon1, lat2, lon2) {
       const R = 6371;
       const dLat = (lat2-lat1) * Math.PI / 180;
@@ -322,50 +378,57 @@
     }
 
     // -----------------------------------------------------------------
-    // 5. ACCEPT & REJECT ORDER LOGIC
+    // 5. ACCEPT & REJECT ORDER LOGIC (NEGO OLEH PEMANDU)
     // -----------------------------------------------------------------
-    async function acceptOrder(orderId, isNego) {
+    async function acceptOrder(orderId, originalPrice) {
       if (!currentDriver) return;
 
-      totalIncomingOrders++;
-      totalAcceptedOrders++;
-
-      let finalPriceToSet = null;
-
-      if (isNego) {
-        const choice = confirm("Customer cadangkan harga tawar. Tekan 'OK' untuk terima harga tawar mereka, atau 'Cancel' untuk masukkan potongan diskaun pilihan anda sendiri.");
-        if (!choice) {
-          const customDiscount = prompt("Masukkan jumlah potongan harga yang anda setuju tolak (RM):", "1.00");
-          if (customDiscount !== null && !isNaN(customDiscount)) {
-            const doc = await db.collection('orders').doc(orderId).get();
-            finalPriceToSet = doc.data().originalPrice - parseFloat(customDiscount);
-            if (finalPriceToSet < 4.00) finalPriceToSet = 4.00; // Had min RM4
-          }
+      // Nego Logic: Tanya pemandu nak bagi diskaun berapa (RM)
+      let finalPriceToSet = originalPrice;
+      const mahuDiskaun = confirm(`Harga Asal: RM ${originalPrice.toFixed(2)}.\n\nAdakah anda ingin meletakkan harga diskaun/potongan untuk pelanggan ini?\n\nTekan 'OK' untuk masukkan nilai tolak, atau 'Cancel' untuk terima pada harga asal.`);
+      
+      if (mahuDiskaun) {
+        const tolak = prompt(`Berapa RM anda mahu tolak daripada RM ${originalPrice.toFixed(2)}?\n(Contoh: Masukkan 1.50)`);
+        if (tolak !== null && !isNaN(tolak) && parseFloat(tolak) > 0) {
+          finalPriceToSet = originalPrice - parseFloat(tolak);
+          if (finalPriceToSet < 4.00) finalPriceToSet = 4.00; // Had min RM4 tidak dikira, tapi jika nak letak ikut suka driver, kita boleh lepaskan. Kita letak min RM2 la untuk rasional.
         }
       }
 
+      // Pastikan driver hantar detail plat dan kereta
       const updateData = {
         status: 'ACCEPTED',
         driverId: currentDriver.uid,
         driverName: currentDriver.displayName,
-        driverPhoto: currentDriver.photoURL
+        driverPhoto: currentDriver.photoURL,
+        driverCarModel: driverProfileData.carModel,
+        driverCarPlate: driverProfileData.carPlate,
+        finalPrice: finalPriceToSet
       };
 
-      if (finalPriceToSet !== null) {
-        updateData.finalPrice = finalPriceToSet;
+      try {
+        await db.collection('orders').doc(orderId).update(updateData);
+        isBusy = true; // Tandakan pemandu sibuk
+        totalIncomingOrders++;
+        totalAcceptedOrders++;
+        updateDriverStatsInDB();
+
+        currentActiveJobDocId = orderId;
+        listenForOrders(); // Refresh senarai order (akan tunjuk "Sibuk")
+        loadActiveJob(orderId);
+      } catch (e) {
+        alert("Ralat, pesanan ini mungkin telah diambil oleh pemandu lain.");
       }
-
-      await db.collection('orders').doc(orderId).update(updateData);
-      updateDriverStatsInDB();
-
-      currentActiveJobDocId = orderId;
-      loadActiveJob(orderId);
     }
 
-    function rejectOrder(orderId) {
+    async function rejectOrder(orderId) {
+      // Masukkan ID Pemandu ke dalam array rejectedBy
+      await db.collection('orders').doc(orderId).update({
+        rejectedBy: firebase.firestore.FieldValue.arrayUnion(currentDriver.uid)
+      });
+      
       totalIncomingOrders++;
       updateDriverStatsInDB();
-      alert("Order di-reject.");
     }
 
     function updateDriverStatsInDB() {
@@ -398,22 +461,26 @@
         document.getElementById('jobPickup').innerText = job.pickupAddress;
         document.getElementById('jobDropoff').innerText = job.dropoffAddress;
         document.getElementById('jobPrice').innerText = `RM ${job.finalPrice.toFixed(2)}`;
-        document.getElementById('jobPayment').innerText = job.paymentMethod.toUpperCase();
+        document.getElementById('jobPayment').innerText = job.paymentMethod;
         document.getElementById('activeJobStatus').innerText = job.status;
 
-        // Simpan titik koordinat dropoff untuk peta
-        window.currentDropoffCoords = { lat: job.dropoffLat, lng: job.dropoffLng };
+        // Simpan titik koordinat pickup dan dropoff untuk peta
+        window.currentRouteCoords = {
+          pickLat: job.pickupLat, pickLng: job.pickupLng,
+          dropLat: job.dropoffLat, dropLng: job.dropoffLng
+        };
       });
     }
 
-    // Direct Navigasi ke OpenStreetMap
+    // Direct Navigasi dari Pick Up ke Drop Off di OpenStreetMap
     function openOpenStreetMapNavigation() {
-      if (!window.currentDropoffCoords) return;
-      const url = `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=;${window.currentDropoffCoords.lat}%2C${window.currentDropoffCoords.lng}`;
+      if (!window.currentRouteCoords) return;
+      const rc = window.currentRouteCoords;
+      // Format URL OSRM routing dari Titik A ke Titik B
+      const url = `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${rc.pickLat}%2C${rc.pickLng}%3B${rc.dropLat}%2C${rc.dropLng}`;
       window.open(url, '_blank');
     }
 
-    // Pemandu Tekan "Dah Sampai"
     async function markArrived() {
       if (!currentActiveJobDocId) return;
 
@@ -424,21 +491,19 @@
 
       document.getElementById('btnArrived').classList.add('hidden');
       document.getElementById('btnStartTrip').classList.remove('hidden');
+      alert("Pelanggan telah dimaklumkan!");
 
-      alert("Mesej pemberitahuan dihantar kepada customer: Driver telah sampai!");
-
-      // AUTOMATION SYARAT: 5 Minit Customer Tak Sampai, Auto Cancel jika driver tak mulakan perjalanan
       autoCancelTimer = setTimeout(async () => {
         const doc = await db.collection('orders').doc(currentActiveJobDocId).get();
         if (doc.data().status === 'ARRIVED') {
           await db.collection('orders').doc(currentActiveJobDocId).update({ status: 'CANCELLED' });
           alert("AUTO CANCEL: Customer tidak memunculkan diri selepas 5 minit.");
+          syncToGoogleSheet(doc.data(), 'CANCELLED (Customer No-Show)');
           resetActiveJobUI();
         }
-      }, 5 * 60 * 1000); // 5 minit
+      }, 5 * 60 * 1000);
     }
 
-    // Mulakan Perjalanan
     async function startTrip() {
       if (autoCancelTimer) clearTimeout(autoCancelTimer);
 
@@ -447,33 +512,42 @@
       document.getElementById('btnCompleteTrip').classList.remove('hidden');
     }
 
-    // Perjalanan Selesai
     async function completeTrip() {
+      const doc = await db.collection('orders').doc(currentActiveJobDocId).get();
       await db.collection('orders').doc(currentActiveJobDocId).update({ status: 'COMPLETED' });
       alert("Perjalanan Selesai & Bayaran Diterima! Terima Kasih.");
+      
+      syncToGoogleSheet(doc.data(), 'COMPLETED');
       resetActiveJobUI();
     }
 
-    function reportFakeOrder() {
-      const reason = prompt("Sila berikan sebab laporan scam/fake order:");
+    async function reportFakeOrder() {
+      const reason = prompt("Berikan sebab laporan scam/fake order:");
       if (reason) {
-        db.collection('orders').doc(currentActiveJobDocId).update({ status: 'CANCELLED' });
-        alert("Laporan scam telah dihantar ke sistem keselamatan MyRide.");
+        const doc = await db.collection('orders').doc(currentActiveJobDocId).get();
+        await db.collection('orders').doc(currentActiveJobDocId).update({ status: 'CANCELLED', cancelReason: reason });
+        alert("Laporan telah dihantar.");
+        
+        syncToGoogleSheet(doc.data(), `SCAM REPORT: ${reason}`);
         resetActiveJobUI();
       }
     }
 
     function resetActiveJobUI() {
       currentActiveJobDocId = null;
+      isBusy = false; // Bebaskan pemandu
+      
       document.getElementById('activeJobSection').classList.add('hidden');
       document.getElementById('btnArrived').classList.remove('hidden');
       document.getElementById('btnStartTrip').classList.add('hidden');
       document.getElementById('btnCompleteTrip').classList.add('hidden');
+      
+      listenForOrders(); // Refresh senarai, tunjuk order baru
       loadDriverHistory();
     }
 
     // -----------------------------------------------------------------
-    // 7. SEJARAH PEMANDUAN DRIVER
+    // 7. SEJARAH PEMANDUAN & GOOGLE SHEETS SYNC
     // -----------------------------------------------------------------
     function loadDriverHistory() {
       if (!currentDriver) return;
@@ -504,6 +578,29 @@
           });
           list.innerHTML = html;
         });
+    }
+
+    // Fungsi Auto Send ke Google Sheets
+    function syncToGoogleSheet(orderData, forceStatus = null) {
+      if (GOOGLE_SHEET_WEBHOOK_URL === "YOUR_GOOGLE_APPS_SCRIPT_WEBAPP_URL") return;
+
+      const payload = {
+        date: new Date().toLocaleString(),
+        driverName: currentDriver.displayName,
+        carPlate: driverProfileData.carPlate,
+        customerName: orderData.customerName,
+        pickup: orderData.pickupAddress,
+        dropoff: orderData.dropoffAddress,
+        status: forceStatus || orderData.status,
+        price: orderData.finalPrice,
+      };
+
+      fetch(GOOGLE_SHEET_WEBHOOK_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).catch(err => console.log("Gagal sync ke Google Sheets:", err));
     }
   </script>
 </body>
