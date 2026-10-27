@@ -209,7 +209,7 @@
     <div class="bg-gray-800 border-2 border-red-500 p-6 rounded-2xl text-center space-y-4 max-w-sm w-full">
       <i class="fa-solid fa-circle-exclamation text-5xl text-red-500"></i>
       <h3 class="text-white font-bold text-xl">Pesanan Dibatalkan!</h3>
-      <p class="text-gray-300 text-sm">Pelanggan telah membatalkan pesanan ini secara tiba-tiba.</p>
+      <p class="text-gray-300 text-sm">Pelanggan telah membatalkan pesanan ini.</p>
       <button onclick="acknowledgeCustomerCancel()" class="w-full bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-500 transition">OK, Kosongkan Tugasan</button>
     </div>
   </div>
@@ -253,6 +253,8 @@
     let driverProfileData = null; 
     
     let incomingOrdersListener = null;
+    let pendingOrderListener = null; // Watcher untuk alert cancel order
+    let watchedPendingOrderId = null;
     let currentActiveJobDocId = null;
     let autoCancelTimer = null;
     let isDriverCancelling = false; 
@@ -375,7 +377,7 @@
     }
 
     // -----------------------------------------------------------------
-    // 4. PENGAGIHAN PESANAN
+    // 4. PENGAGIHAN PESANAN (FIX 2: SISTEM PING 1 DRIVER)
     // -----------------------------------------------------------------
     function listenForOrders() {
       if (incomingOrdersListener) incomingOrdersListener();
@@ -404,9 +406,10 @@
             const order = doc.data();
             const orderId = doc.id;
 
+            // Jika driver dah reject order ini sebelum ini, abaikan
             if (order.rejectedBy && order.rejectedBy.includes(currentDriver.uid)) return;
 
-            // [TAMBAHAN TERBARU] Tapisan Kapasiti Penumpang
+            // Tapisan Kapasiti Penumpang
             const driverCapacity = driverProfileData.maxPassengers || 4;
             const orderPassengers = order.passengerCount || 1;
             if (orderPassengers > driverCapacity) return; 
@@ -414,6 +417,23 @@
             const distToPickup = calculateDistance(driverLocation.lat, driverLocation.lng, order.pickupLat, order.pickupLng);
 
             if (distToPickup <= 2.0 || order.expandedSearch === true) {
+              
+              // --- SISTEM PING 1 DRIVER SAHAJA ---
+              // Jika pesanan telah di-lock untuk driver lain, abaikan
+              if (order.pingedDriverId && order.pingedDriverId !== currentDriver.uid) return;
+
+              // Jika pesanan belum di-lock, kita lock pesanan ini untuk driver ini
+              if (!order.pingedDriverId) {
+                  db.collection('orders').doc(orderId).update({
+                      pingedDriverId: currentDriver.uid
+                  }).catch(e => console.log("Gagal ping order:", e));
+                  return; // Berhenti di sini, snapshot baru akan me-render selepas update berjaya
+              }
+
+              // Set Watcher untuk Alert Cancel (FIX 3)
+              // Kalau pelanggan cancel sewaktu driver tengok pesanan ini, popup merah akan keluar
+              watchPendingOrder(orderId);
+
               visibleOrders++;
               
               html += `
@@ -431,9 +451,9 @@
                   </div>
 
                   <div class="text-xs space-y-1 text-gray-300">
-                    <p>📍 <strong>Pick Up:</strong> ${order.pickupAddress || 'Tidak dinyatakan'}</p>
-                    <p>🏁 <strong>Drop Off:</strong> ${order.dropoffAddress || 'Tidak dinyatakan'}</p>
-                    ${order.notes ? `<p class="italic text-amber-200 bg-amber-900/30 p-1.5 rounded mt-1">📝 "${order.notes}"</p>` : ''}
+                    <p>桃 <strong>Pick Up:</strong> ${order.pickupAddress || 'Tidak dinyatakan'}</p>
+                    <p>潤 <strong>Drop Off:</strong> ${order.dropoffAddress || 'Tidak dinyatakan'}</p>
+                    ${order.notes ? `<p class="italic text-amber-200 bg-amber-900/30 p-1.5 rounded mt-1">統 "${order.notes}"</p>` : ''}
                   </div>
 
                   <div class="grid grid-cols-2 gap-2 pt-2">
@@ -447,6 +467,24 @@
 
           document.getElementById('orderCountBadge').innerText = `${visibleOrders} Permintaan`;
           list.innerHTML = html || `<div class="text-center py-8 text-gray-500 text-xs">Tiada tempahan baru.</div>`;
+        });
+    }
+
+    // FIX 3: Fungsi pemerhati jika customer cancel semasa pesanan dalam senarai/belum accept
+    function watchPendingOrder(orderId) {
+        if (watchedPendingOrderId === orderId) return;
+        if (pendingOrderListener) pendingOrderListener();
+        watchedPendingOrderId = orderId;
+
+        pendingOrderListener = db.collection('orders').doc(orderId).onSnapshot(doc => {
+            if (doc.exists) {
+                const data = doc.data();
+                if (data.status === 'CANCELLED' && !isDriverCancelling) {
+                    document.getElementById('cancelAlertModal').classList.remove('hidden');
+                    if (pendingOrderListener) pendingOrderListener();
+                    watchedPendingOrderId = null;
+                }
+            }
         });
     }
 
@@ -475,7 +513,7 @@
 
     function closePriceModal() {
       document.getElementById('priceActionModal').classList.add('hidden');
-      tempOrderId = null;
+      tempOrderId = null; // Reset order ID sementara
     }
 
     function togglePriceActionFields() {
@@ -531,10 +569,14 @@
         totalAcceptedOrders++;
         updateDriverStatsInDB();
 
-        currentActiveJobDocId = tempOrderId;
-        closePriceModal();
+        // FIX 1: Simpan order ID ke dalam pembolehubah lain sebelum closePriceModal (yang mana meletakkan tempOrderId = null)
+        const acceptedOrderId = tempOrderId; 
+        currentActiveJobDocId = acceptedOrderId;
+        
+        closePriceModal(); 
         listenForOrders(); 
-        loadActiveJob(tempOrderId);
+        loadActiveJob(acceptedOrderId); // Data customer akan dimuatkan tanpa gagal
+        
         showToast("Pesanan berjaya diambil!", "success");
       } catch (e) {
         showToast("Ralat, pesanan mungkin telah diambil.", "error");
@@ -543,8 +585,10 @@
     }
 
     async function rejectOrder(orderId) {
+      // FIX 2: Bila Reject, masukkan nama dalam list rejectedBy DAN lepaskan ping (null) supaya masuk ke driver lain
       await db.collection('orders').doc(orderId).update({
-        rejectedBy: firebase.firestore.FieldValue.arrayUnion(currentDriver.uid)
+        rejectedBy: firebase.firestore.FieldValue.arrayUnion(currentDriver.uid),
+        pingedDriverId: null 
       });
       totalIncomingOrders++;
       updateDriverStatsInDB();
@@ -570,16 +614,19 @@
     function loadActiveJob(orderId) {
       document.getElementById('activeJobSection').classList.remove('hidden');
 
+      // Kosongkan watcher pending jika kita sudah accept
+      if (pendingOrderListener) { pendingOrderListener(); watchedPendingOrderId = null; }
+
       db.collection('orders').doc(orderId).onSnapshot(doc => {
         if (!doc.exists) return;
         const job = doc.data();
 
+        // Alert Cancel jika pelanggan batal selepas driver accept pesanan
         if (job.status === 'CANCELLED' && !isDriverCancelling) {
            document.getElementById('cancelAlertModal').classList.remove('hidden');
            return;
         }
 
-        // [TAMBAHAN TERBARU] Fallback Data - Supaya kod tak crash sekiranya maklumat tak lengkap
         const avatarUrl = job.customerPhoto && job.customerPhoto.trim() !== '' 
             ? job.customerPhoto 
             : `https://ui-avatars.com/api/?name=${encodeURIComponent(job.customerName || 'Pelanggan')}&background=random`;
@@ -601,9 +648,11 @@
       });
     }
 
+    // FIX 3: Fungsi bila driver klik 'OK' pada Alert Cancel
     function acknowledgeCustomerCancel() {
         document.getElementById('cancelAlertModal').classList.add('hidden');
-        resetActiveJobUI();
+        closePriceModal(); // Tutup modal jika tengah negotiate harga
+        resetActiveJobUI(); // Reset UI semula ke status menunggu pesanan
     }
 
     function openOpenStreetMapNavigation() {
@@ -672,6 +721,7 @@
       currentActiveJobDocId = null;
       isBusy = false; 
       isDriverCancelling = false;
+      if (pendingOrderListener) { pendingOrderListener(); watchedPendingOrderId = null; }
       
       document.getElementById('activeJobSection').classList.add('hidden');
       document.getElementById('btnArrived').classList.remove('hidden');
