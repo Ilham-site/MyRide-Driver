@@ -521,22 +521,34 @@
 
       finalPriceToSet = Math.round(finalPriceToSet);
 
+// Pastikan maklumat pemandu tidak undefined untuk elak ralat Firestore
       const updateData = {
         status: 'ACCEPTED',
-        driverId: currentDriver.uid,
-        driverName: currentDriver.displayName,
-        driverPhoto: currentDriver.photoURL,
-        driverCarModel: driverProfileData.carModel,
-        driverCarPlate: driverProfileData.carPlate,
+        driverId: currentDriver.uid || "",
+        driverName: currentDriver.displayName || "Pemandu",
+        driverPhoto: currentDriver.photoURL || "",
+        driverCarModel: driverProfileData.carModel || "",
+        driverCarPlate: driverProfileData.carPlate || "",
         finalPrice: finalPriceToSet
       };
 
       if (type === 'increase') {
-        updateData.priceIncreaseReason = document.getElementById('increaseReason').value;
+        updateData.priceIncreaseReason = document.getElementById('increaseReason').value || "";
       }
 
       try {
-        await db.collection('orders').doc(tempOrderId).update(updateData);
+        const docRef = db.collection('orders').doc(tempOrderId);
+        const docSnap = await docRef.get();
+
+        // SEMAKAN KESELAMATAN: Pastikan pesanan masih wujud dan belum dibatalkan
+        if (!docSnap.exists || docSnap.data().status === 'CANCELLED') {
+           showToast("Maaf, pesanan ini telah pun dibatalkan oleh pelanggan.", "error");
+           closePriceModal();
+           listenForOrders(); // Segar semula senarai tugas 
+           return; // Hentikan proses serta-merta
+        }
+
+        await docRef.update(updateData);
         
         isBusy = true; 
         isDriverCancelling = false;
@@ -546,16 +558,14 @@
 
         currentActiveJobDocId = tempOrderId;
         closePriceModal();
-        listenForOrders(); // Sembunyikan senarai incoming
+        listenForOrders();
         
-        // Terus load active job interface
         loadActiveJob(tempOrderId);
         showToast("Pesanan berjaya diambil!", "success");
       } catch (e) {
-        showToast("Ralat, pesanan mungkin telah dibatalkan.", "error");
+        showToast("Ralat kemas kini pangkalan data.", "error");
         closePriceModal();
       }
-    }
 
     async function rejectOrder(orderId) {
       // Release the order ping so NEXT driver can see it
