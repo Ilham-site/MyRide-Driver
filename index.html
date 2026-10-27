@@ -470,7 +470,7 @@
         });
     }
 
-    // FIX 3: Fungsi pemerhati jika customer cancel semasa pesanan dalam senarai/belum accept
+// FIX 3: Fungsi pemerhati jika customer cancel semasa pesanan dalam senarai/belum accept
     function watchPendingOrder(orderId) {
         if (watchedPendingOrderId === orderId) return;
         if (pendingOrderListener) pendingOrderListener();
@@ -479,6 +479,14 @@
         pendingOrderListener = db.collection('orders').doc(orderId).onSnapshot(doc => {
             if (doc.exists) {
                 const data = doc.data();
+
+                // TAMPALAN BARU: Hentikan pemerhati secara senyap jika pesanan ini telah beralih/diping kepada pemandu lain
+                if (data.pingedDriverId !== currentDriver.uid && data.driverId !== currentDriver.uid) {
+                    if (pendingOrderListener) pendingOrderListener();
+                    watchedPendingOrderId = null;
+                    return; 
+                }
+
                 if (data.status === 'CANCELLED' && !isDriverCancelling) {
                     document.getElementById('cancelAlertModal').classList.remove('hidden');
                     if (pendingOrderListener) pendingOrderListener();
@@ -487,7 +495,6 @@
             }
         });
     }
-
     function calculateDistance(lat1, lon1, lat2, lon2) {
       const R = 6371;
       const dLat = (lat2-lat1) * Math.PI / 180;
