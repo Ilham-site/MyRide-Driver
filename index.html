@@ -442,9 +442,9 @@
                       </div>
 
                       <div class="text-xs space-y-1 text-gray-300">
-                        <p>桃 <strong>Pick Up:</strong> ${order.pickupAddress || 'Tidak dinyatakan'}</p>
-                        <p>潤 <strong>Drop Off:</strong> ${order.dropoffAddress || 'Tidak dinyatakan'}</p>
-                        ${order.notes ? `<p class="italic text-amber-200 bg-amber-900/30 p-1.5 rounded mt-1">離 "${order.notes}"</p>` : ''}
+                        <p>📍 <strong>Pick Up:</strong> ${order.pickupAddress || 'Tidak dinyatakan'}</p>
+                        <p>🏁 <strong>Drop Off:</strong> ${order.dropoffAddress || 'Tidak dinyatakan'}</p>
+                        ${order.notes ? `<p class="italic text-amber-200 bg-amber-900/30 p-1.5 rounded mt-1">🗣 "${order.notes}"</p>` : ''}
                       </div>
 
                       <div class="grid grid-cols-2 gap-2 pt-2">
@@ -502,7 +502,7 @@
       if (type === 'increase') incSec.classList.remove('hidden');
     }
 
-async function confirmAcceptOrder() {
+    async function confirmAcceptOrder() {
       if (!currentDriver || !tempOrderId) return;
       
       const type = document.getElementById('priceActionType').value;
@@ -521,33 +521,22 @@ async function confirmAcceptOrder() {
 
       finalPriceToSet = Math.round(finalPriceToSet);
 
-      // Ditambah sistem semakan 'driverProfileData' untuk mengelakkan ralat 'null'
       const updateData = {
         status: 'ACCEPTED',
-        driverId: currentDriver.uid || "",
-        driverName: currentDriver.displayName || "Pemandu",
-        driverPhoto: currentDriver.photoURL || "",
-        driverCarModel: driverProfileData ? driverProfileData.carModel || "" : "",
-        driverCarPlate: driverProfileData ? driverProfileData.carPlate || "" : "",
+        driverId: currentDriver.uid,
+        driverName: currentDriver.displayName,
+        driverPhoto: currentDriver.photoURL,
+        driverCarModel: driverProfileData.carModel,
+        driverCarPlate: driverProfileData.carPlate,
         finalPrice: finalPriceToSet
       };
 
       if (type === 'increase') {
-        updateData.priceIncreaseReason = document.getElementById('increaseReason').value || "";
+        updateData.priceIncreaseReason = document.getElementById('increaseReason').value;
       }
 
       try {
-        const docRef = db.collection('orders').doc(tempOrderId);
-        const docSnap = await docRef.get();
-
-        if (!docSnap.exists || docSnap.data().status === 'CANCELLED') {
-           showToast("Maaf, pesanan ini telah pun dibatalkan oleh pelanggan.", "error");
-           closePriceModal();
-           listenForOrders(); 
-           return; 
-        }
-
-        await docRef.update(updateData);
+        await db.collection('orders').doc(tempOrderId).update(updateData);
         
         isBusy = true; 
         isDriverCancelling = false;
@@ -557,14 +546,13 @@ async function confirmAcceptOrder() {
 
         currentActiveJobDocId = tempOrderId;
         closePriceModal();
-        listenForOrders();
+        listenForOrders(); // Sembunyikan senarai incoming
         
+        // Terus load active job interface
         loadActiveJob(tempOrderId);
         showToast("Pesanan berjaya diambil!", "success");
       } catch (e) {
-        // Akan tunjuk punca ralat sebenar jika gagal
-        console.error("Ralat Sistem: ", e);
-        showToast("Gagal: " + e.message, "error"); 
+        showToast("Ralat, pesanan mungkin telah dibatalkan.", "error");
         closePriceModal();
       }
     }
@@ -596,37 +584,27 @@ async function confirmAcceptOrder() {
     // -----------------------------------------------------------------
     // 6. ACTIVE JOB WORKFLOW & NOTIFIKASI CANCEL
     // -----------------------------------------------------------------
-function loadActiveJob(orderId) {
+    function loadActiveJob(orderId) {
       document.getElementById('activeJobSection').classList.remove('hidden');
 
-      if (activeJobListener) {
-          activeJobListener();
-          activeJobListener = null;
-      }
+      // Clear any previous active listener before creating new one
+      if (activeJobListener) activeJobListener();
 
       activeJobListener = db.collection('orders').doc(orderId).onSnapshot(doc => {
-        if (!doc.exists) {
-            showToast("Pesanan telah dipadam/dibatalkan oleh pelanggan.", "error");
-            if (activeJobListener) {
-                activeJobListener();
-                activeJobListener = null;
-            }
-            resetActiveJobUI();
-            return;
-        }
-        
+        if (!doc.exists) return;
         const job = doc.data();
 
+        // JIKA CUSTOMER CANCEL MASA TENGAH AKTIF:
         if (job.status === 'CANCELLED' && !isDriverCancelling) {
            document.getElementById('cancelAlertModal').classList.remove('hidden');
-           return; 
+           return; // Berhenti kemas kini UI, tunggu driver klik 'OK'
         }
 
-        const customerPic = job.customerPhoto || ""; 
-        const avatarUrl = customerPic.trim() !== '' 
-            ? customerPic 
+        const avatarUrl = job.customerPhoto && job.customerPhoto.trim() !== '' 
+            ? job.customerPhoto 
             : `https://ui-avatars.com/api/?name=${encodeURIComponent(job.customerName || 'Pelanggan')}&background=random`;
 
+        // Pastikan detail semua dimuatkan dengan sempurna ke dalam UI
         document.getElementById('custPhoto').src = avatarUrl;
         document.getElementById('custName').innerText = job.customerName || 'Pelanggan Tanpa Nama';
         document.getElementById('custPassengers').innerText = job.passengerCount || 1;
@@ -641,8 +619,6 @@ function loadActiveJob(orderId) {
           pickLat: job.pickupLat, pickLng: job.pickupLng,
           dropLat: job.dropoffLat, dropLng: job.dropoffLng
         };
-      }, (error) => {
-         console.error("Ralat memuat turun data pelanggan: ", error);
       });
     }
 
@@ -762,6 +738,10 @@ function loadActiveJob(orderId) {
         body: JSON.stringify(payload)
       }).catch(err => console.log("Gagal sync ke Google Sheets:", err));
     }
+  </script>
+</body>
+</html>
+
   </script>
 </body>
 </html>
