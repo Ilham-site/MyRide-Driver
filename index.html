@@ -621,8 +621,10 @@
            return; // Berhenti kemas kini UI, tunggu driver klik 'OK'
         }
 
-        const avatarUrl = job.customerPhoto && job.customerPhoto.trim() !== '' 
-            ? job.customerPhoto 
+// Tukar baris avatarUrl yang asal kepada yang ini:
+        const customerPic = job.customerPhoto || ""; // Pastikan ia sentiasa wujud sebagai string
+        const avatarUrl = customerPic.trim() !== '' 
+            ? customerPic 
             : `https://ui-avatars.com/api/?name=${encodeURIComponent(job.customerName || 'Pelanggan')}&background=random`;
 
         // Pastikan detail semua dimuatkan dengan sempurna ke dalam UI
