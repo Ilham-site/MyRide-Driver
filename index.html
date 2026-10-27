@@ -72,12 +72,8 @@
       </div>
     </div>
 
-    <!-- Active Job Panel -->
-    <div id="activeJobSection" class="hidden bg-gray-800 border-2 border-amber-400 p-5 rounded-xl space-y-4 shadow-xl">
-      <div class="flex justify-between items-center border-b border-gray-700 pb-2">
-        <h2 class="font-bold text-amber-400 text-sm"><i class="fa-solid fa-car-on mr-1"></i> TUGASAN AKTIF</h2>
-        <span id="activeJobStatus" class="bg-emerald-500 text-gray-900 text-xs px-2.5 py-0.5 rounded-full font-black">ACCEPTED</span>
-      </div>
+    <!-- Active Job Panel (Multi-job Support) -->
+    <div id="activeJobsContainer" class="space-y-4"></div>
 
       <!-- Customer Info -->
       <div class="flex items-center space-x-3 bg-gray-700/50 p-3 rounded-lg border border-gray-600">
@@ -387,12 +383,12 @@
         .onSnapshot(snapshot => {
           const list = document.getElementById('incomingOrdersList');
           
-          if (isBusy || currentActiveJobDocId != null) {
-            list.innerHTML = `<div class="text-center py-8 text-emerald-400 text-xs font-bold">Anda sedang dalam tugasan aktif. Selesaikan tugasan dahulu.</div>`;
+          if (isBusy) {
+            list.innerHTML = `<div class="text-center py-8 text-emerald-400 text-xs font-bold">Anda sedang dalam tugasan SEGERA atau perjalanan aktif. Tugasan baru ditangguhkan.</div>`;
             document.getElementById('orderCountBadge').innerText = `Sibuk`;
             return;
           }
-
+          
           if (snapshot.empty) {
             list.innerHTML = `<div class="text-center py-8 text-gray-500 text-xs">Tiada tempahan berdekatan buat masa ini.</div>`;
             document.getElementById('orderCountBadge').innerText = `0 Permintaan`;
@@ -459,6 +455,12 @@
                   <div class="grid grid-cols-2 gap-2 pt-2">
                     <button onclick="rejectOrder('${orderId}')" class="bg-gray-600 hover:bg-gray-500 text-white py-2 rounded-lg text-xs font-bold shadow">Reject</button>
                     <button onclick="openPriceActionModal('${orderId}', ${Math.round(order.originalPrice || 0)})" class="bg-emerald-500 hover:bg-emerald-400 text-gray-900 py-2 rounded-lg text-xs font-black shadow">Accept</button>
+                  </div>
+                  <div class="text-xs space-y-1 text-gray-300">
+                    <p>🕒 <strong class="text-blue-400">Masa Pick Up:</strong> <span class="text-amber-400 font-bold">${order.pickupTime && order.pickupTime !== 'Immediate' ? order.pickupTime : 'Segera (Immediate)'}</span></p>
+                    <p>📍 <strong>Pick Up:</strong> ${order.pickupAddress || 'Tidak dinyatakan'}</p>
+                    <p>🏁 <strong>Drop Off:</strong> ${order.dropoffAddress || 'Tidak dinyatakan'}</p>
+                    ${order.notes ? `<p class="italic text-amber-200 bg-amber-900/30 p-1.5 rounded mt-1">📝 "${order.notes}"</p>` : ''}
                   </div>
                 </div>
               `;
