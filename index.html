@@ -502,7 +502,7 @@
       if (type === 'increase') incSec.classList.remove('hidden');
     }
 
-    async function confirmAcceptOrder() {
+async function confirmAcceptOrder() {
       if (!currentDriver || !tempOrderId) return;
       
       const type = document.getElementById('priceActionType').value;
@@ -521,14 +521,14 @@
 
       finalPriceToSet = Math.round(finalPriceToSet);
 
-// Pastikan maklumat pemandu tidak undefined untuk elak ralat Firestore
+      // Ditambah sistem semakan 'driverProfileData' untuk mengelakkan ralat 'null'
       const updateData = {
         status: 'ACCEPTED',
         driverId: currentDriver.uid || "",
         driverName: currentDriver.displayName || "Pemandu",
         driverPhoto: currentDriver.photoURL || "",
-        driverCarModel: driverProfileData.carModel || "",
-        driverCarPlate: driverProfileData.carPlate || "",
+        driverCarModel: driverProfileData ? driverProfileData.carModel || "" : "",
+        driverCarPlate: driverProfileData ? driverProfileData.carPlate || "" : "",
         finalPrice: finalPriceToSet
       };
 
@@ -540,12 +540,11 @@
         const docRef = db.collection('orders').doc(tempOrderId);
         const docSnap = await docRef.get();
 
-        // SEMAKAN KESELAMATAN: Pastikan pesanan masih wujud dan belum dibatalkan
         if (!docSnap.exists || docSnap.data().status === 'CANCELLED') {
            showToast("Maaf, pesanan ini telah pun dibatalkan oleh pelanggan.", "error");
            closePriceModal();
-           listenForOrders(); // Segar semula senarai tugas 
-           return; // Hentikan proses serta-merta
+           listenForOrders(); 
+           return; 
         }
 
         await docRef.update(updateData);
@@ -563,7 +562,9 @@
         loadActiveJob(tempOrderId);
         showToast("Pesanan berjaya diambil!", "success");
       } catch (e) {
-        showToast("Ralat kemas kini pangkalan data.", "error");
+        // Akan tunjuk punca ralat sebenar jika gagal
+        console.error("Ralat Sistem: ", e);
+        showToast("Gagal: " + e.message, "error"); 
         closePriceModal();
       }
     }
@@ -595,14 +596,15 @@
     // -----------------------------------------------------------------
     // 6. ACTIVE JOB WORKFLOW & NOTIFIKASI CANCEL
     // -----------------------------------------------------------------
-    function loadActiveJob(orderId) {
+function loadActiveJob(orderId) {
       document.getElementById('activeJobSection').classList.remove('hidden');
 
-      // Clear any previous active listener before creating new one
-      if (activeJobListener) activeJobListener();
+      if (activeJobListener) {
+          activeJobListener();
+          activeJobListener = null;
+      }
 
       activeJobListener = db.collection('orders').doc(orderId).onSnapshot(doc => {
-        // --- KOD YANG DIBEBAIKI MULA DI SINI ---
         if (!doc.exists) {
             showToast("Pesanan telah dipadam/dibatalkan oleh pelanggan.", "error");
             if (activeJobListener) {
@@ -612,23 +614,19 @@
             resetActiveJobUI();
             return;
         }
-        // --- KOD YANG DIBEBAIKI TAMAT DI SINI ---
         
         const job = doc.data();
 
-        // JIKA CUSTOMER CANCEL MASA TENGAH AKTIF:
         if (job.status === 'CANCELLED' && !isDriverCancelling) {
            document.getElementById('cancelAlertModal').classList.remove('hidden');
-           return; // Berhenti kemas kini UI, tunggu driver klik 'OK'
+           return; 
         }
 
-// Tukar baris avatarUrl yang asal kepada yang ini:
-        const customerPic = job.customerPhoto || ""; // Pastikan ia sentiasa wujud sebagai string
+        const customerPic = job.customerPhoto || ""; 
         const avatarUrl = customerPic.trim() !== '' 
             ? customerPic 
             : `https://ui-avatars.com/api/?name=${encodeURIComponent(job.customerName || 'Pelanggan')}&background=random`;
 
-        // Pastikan detail semua dimuatkan dengan sempurna ke dalam UI
         document.getElementById('custPhoto').src = avatarUrl;
         document.getElementById('custName').innerText = job.customerName || 'Pelanggan Tanpa Nama';
         document.getElementById('custPassengers').innerText = job.passengerCount || 1;
@@ -643,6 +641,8 @@
           pickLat: job.pickupLat, pickLng: job.pickupLng,
           dropLat: job.dropoffLat, dropLng: job.dropoffLng
         };
+      }, (error) => {
+         console.error("Ralat memuat turun data pelanggan: ", error);
       });
     }
 
