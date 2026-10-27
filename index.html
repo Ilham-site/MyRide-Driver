@@ -72,48 +72,9 @@
       </div>
     </div>
 
-    <!-- Active Job Panel (Multi-job Support) -->
-    <div id="activeJobsContainer" class="space-y-4"></div>
-
-      <!-- Customer Info -->
-      <div class="flex items-center space-x-3 bg-gray-700/50 p-3 rounded-lg border border-gray-600">
-        <img id="custPhoto" src="" class="w-12 h-12 rounded-full border-2 border-gray-500 object-cover">
-        <div>
-          <h3 id="custName" class="font-bold text-sm text-white">Nama Pelanggan</h3>
-          <p class="text-[10px] text-gray-400 mt-1"><i class="fa-solid fa-users mr-1"></i> <span id="custPassengers">1</span> Penumpang</p>
-          <p id="custNotes" class="text-xs text-gray-400 italic mt-0.5">"Tiada pesanan khas"</p>
-        </div>
-      </div>
-
-      <!-- Route Info -->
-      <div class="space-y-1 text-xs text-gray-300 bg-gray-900/50 p-3 rounded border border-gray-700">
-        <p><strong class="text-emerald-400">Pick Up:</strong> <span id="jobPickup"></span></p>
-        <p><strong class="text-rose-400">Drop Off:</strong> <span id="jobDropoff"></span></p>
-        <p><strong class="text-amber-400">Bayaran Akhir:</strong> <span id="jobPrice" class="text-sm font-bold text-amber-400"></span> (<span id="jobPayment" class="uppercase"></span>)</p>
-      </div>
-
-      <!-- Action Buttons for Ongoing Job -->
-      <div class="space-y-2 pt-2">
-        <button onclick="openOpenStreetMapNavigation()" class="w-full bg-blue-600 text-white py-2.5 rounded-lg text-xs font-bold hover:bg-blue-500 transition">
-          <i class="fa-solid fa-map-location-dot mr-1"></i> Buka Peta Laluan (Pick Up ke Drop Off)
-        </button>
-
-        <button id="btnArrived" onclick="markArrived()" class="w-full bg-amber-500 text-gray-900 py-2.5 rounded-lg text-xs font-bold hover:bg-amber-400">
-          <i class="fa-solid fa-bullhorn mr-1"></i> Dah Sampai kat Tempat Pick Up
-        </button>
-
-        <button id="btnStartTrip" onclick="startTrip()" class="hidden w-full bg-emerald-600 text-white py-2.5 rounded-lg text-xs font-bold hover:bg-emerald-500">
-          <i class="fa-solid fa-play mr-1"></i> Mulakan Perjalanan
-        </button>
-
-        <button id="btnCompleteTrip" onclick="completeTrip()" class="hidden w-full bg-indigo-600 text-white py-2.5 rounded-lg text-xs font-bold hover:bg-indigo-500">
-          <i class="fa-solid fa-check-double mr-1"></i> Selesai Perjalanan & Bayaran Diterima
-        </button>
-
-        <button onclick="openReportModal()" class="w-full bg-red-900/50 text-red-300 border border-red-700 py-2 rounded-lg text-xs font-bold hover:bg-red-900/80">
-          <i class="fa-solid fa-shield-cat mr-1"></i> Laporkan Fake / Scam Order
-        </button>
-      </div>
+    <!-- Active Jobs Container (Multi-job Support) -->
+    <div id="activeJobsContainer" class="space-y-4">
+      <!-- Tugasan aktif akan dipaparkan di sini -->
     </div>
 
     <!-- Incoming Orders List Section -->
@@ -206,7 +167,7 @@
       <i class="fa-solid fa-circle-exclamation text-5xl text-red-500"></i>
       <h3 class="text-white font-bold text-xl">Pesanan Dibatalkan!</h3>
       <p class="text-gray-300 text-sm">Pelanggan telah membatalkan pesanan ini.</p>
-      <button onclick="acknowledgeCustomerCancel()" class="w-full bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-500 transition">OK, Kosongkan Tugasan</button>
+      <button onclick="acknowledgeCustomerCancel()" class="w-full bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-500 transition">OK, Fahami</button>
     </div>
   </div>
 
@@ -249,11 +210,13 @@
     let driverProfileData = null; 
     
     let incomingOrdersListener = null;
-    let pendingOrderListener = null; // Watcher untuk alert cancel order
+    let pendingOrderListener = null; 
+    let activeJobsListener = null;
     let watchedPendingOrderId = null;
-    let currentActiveJobDocId = null;
-    let autoCancelTimer = null;
-    let isDriverCancelling = false; 
+    
+    let activeJobs = []; // Menyimpan semua pesanan aktif pemandu
+    let driverCancellingIds = new Set(); 
+    let tempReportOrderId = null;
 
     let tempOrderId = null;
     let tempOriginalPrice = 0;
@@ -317,6 +280,9 @@
         totalIncomingOrders = driverProfileData.totalOrders || 0;
         totalAcceptedOrders = driverProfileData.acceptedOrders || 0;
         updateAcceptanceRateUI();
+        
+        // Mula pantau tugasan aktif pemandu sebaik log masuk
+        listenForActiveJobs();
       }
     }
 
@@ -348,6 +314,7 @@
       document.getElementById('firstTimeDriverModal').classList.add('hidden');
       showToast("Profil kenderaan berjaya disimpan!", "success");
       updateAcceptanceRateUI();
+      listenForActiveJobs();
     }
 
     // -----------------------------------------------------------------
@@ -373,7 +340,131 @@
     }
 
     // -----------------------------------------------------------------
-    // 4. PENGAGIHAN PESANAN (FIX 2: SISTEM PING 1 DRIVER)
+    // 4. PEMANTAUAN TUGASAN AKTIF (MENYOKONG MULTIPLE JOBS)
+    // -----------------------------------------------------------------
+    function listenForActiveJobs() {
+      if (activeJobsListener) activeJobsListener();
+
+      activeJobsListener = db.collection('orders')
+        .where('driverId', '==', currentDriver.uid)
+        .onSnapshot(snapshot => {
+          activeJobs = [];
+          let hasImmediateJob = false;
+
+          snapshot.forEach(doc => {
+            const job = doc.data();
+            job.id = doc.id;
+
+            if (['ACCEPTED', 'ARRIVED', 'IN_PROGRESS'].includes(job.status)) {
+              activeJobs.push(job);
+              
+              // Semak jika ada tugasan yang segera
+              const pTime = job.pickupTime || 'segera';
+              if (pTime.toLowerCase() === 'segera' || pTime.toLowerCase() === 'immediate') {
+                hasImmediateJob = true;
+              }
+            }
+          });
+
+          // Pemandu hanya dianggap SIBUK jika mereka sedang melaksanakan tugasan "SEGERA"
+          // Jika tugasan aktif adalah berjadual (cth: 10:30 AM), isBusy kekal false
+          isBusy = hasImmediateJob;
+          renderActiveJobsUI();
+          
+          if (isOnline) {
+             listenForOrders(); // Refresh senarai tempahan masuk bergantung kpd status isBusy
+          }
+
+          // Semak jika pelanggan cancel tugasan yang kita dah terima
+          snapshot.docChanges().forEach(change => {
+            if (change.type === "modified") {
+              const changedJob = change.doc.data();
+              if (changedJob.status === 'CANCELLED' && !driverCancellingIds.has(change.doc.id)) {
+                 document.getElementById('cancelAlertModal').classList.remove('hidden');
+              }
+            }
+          });
+        });
+    }
+
+    function renderActiveJobsUI() {
+      const container = document.getElementById('activeJobsContainer');
+      
+      if (activeJobs.length === 0) {
+        container.innerHTML = '';
+        return;
+      }
+
+      let html = '';
+      activeJobs.forEach(job => {
+        const avatarUrl = job.customerPhoto && job.customerPhoto.trim() !== '' 
+            ? job.customerPhoto 
+            : `https://ui-avatars.com/api/?name=${encodeURIComponent(job.customerName || 'Pelanggan')}&background=random`;
+
+        const showArrived = job.status === 'ACCEPTED' ? '' : 'hidden';
+        const showStart = job.status === 'ARRIVED' ? '' : 'hidden';
+        const showComplete = job.status === 'IN_PROGRESS' ? '' : 'hidden';
+        
+        const pTime = job.pickupTime || 'Segera';
+        const isImmediate = pTime.toLowerCase() === 'segera' || pTime.toLowerCase() === 'immediate';
+        const timeBadge = isImmediate 
+            ? `<span class="bg-emerald-500 text-gray-900 text-[10px] px-2 py-0.5 rounded-full font-black ml-2">SEGERA</span>` 
+            : `<span class="bg-amber-500 text-gray-900 text-[10px] px-2 py-0.5 rounded-full font-black ml-2">${pTime}</span>`;
+
+        html += `
+          <div class="bg-gray-800 border-2 border-amber-400 p-5 rounded-xl space-y-4 shadow-xl mb-4">
+            <div class="flex justify-between items-center border-b border-gray-700 pb-2">
+              <h2 class="font-bold text-amber-400 text-sm flex items-center"><i class="fa-solid fa-car-on mr-1"></i> TUGASAN AKTIF ${timeBadge}</h2>
+              <span class="bg-emerald-500 text-gray-900 text-xs px-2.5 py-0.5 rounded-full font-black">${job.status}</span>
+            </div>
+
+            <!-- Customer Info -->
+            <div class="flex items-center space-x-3 bg-gray-700/50 p-3 rounded-lg border border-gray-600">
+              <img src="${avatarUrl}" class="w-12 h-12 rounded-full border-2 border-gray-500 object-cover">
+              <div>
+                <h3 class="font-bold text-sm text-white">${job.customerName || 'Pelanggan'}</h3>
+                <p class="text-[10px] text-gray-400 mt-1"><i class="fa-solid fa-users mr-1"></i> <span>${job.passengerCount || 1}</span> Penumpang</p>
+                <p class="text-xs text-gray-400 italic mt-0.5">"${job.notes || 'Tiada pesanan khas'}"</p>
+              </div>
+            </div>
+
+            <!-- Route Info -->
+            <div class="space-y-1 text-xs text-gray-300 bg-gray-900/50 p-3 rounded border border-gray-700">
+              <p><strong class="text-emerald-400">Pick Up:</strong> <span>${job.pickupAddress || 'Tidak dinyatakan'}</span></p>
+              <p><strong class="text-rose-400">Drop Off:</strong> <span>${job.dropoffAddress || 'Tidak dinyatakan'}</span></p>
+              <p><strong class="text-amber-400">Bayaran Akhir:</strong> <span class="text-sm font-bold text-amber-400">RM ${Math.round(job.finalPrice || job.originalPrice || 0)}</span> (<span class="uppercase">${job.paymentMethod || 'TUNAI'}</span>)</p>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="space-y-2 pt-2">
+              <button onclick="openOpenStreetMapNavigation(${job.pickupLat}, ${job.pickupLng}, ${job.dropoffLat}, ${job.dropoffLng})" class="w-full bg-blue-600 text-white py-2.5 rounded-lg text-xs font-bold hover:bg-blue-500 transition">
+                <i class="fa-solid fa-map-location-dot mr-1"></i> Buka Peta Laluan
+              </button>
+
+              <button onclick="markArrived('${job.id}')" class="${showArrived} w-full bg-amber-500 text-gray-900 py-2.5 rounded-lg text-xs font-bold hover:bg-amber-400">
+                <i class="fa-solid fa-bullhorn mr-1"></i> Dah Sampai kat Tempat Pick Up
+              </button>
+
+              <button onclick="startTrip('${job.id}')" class="${showStart} w-full bg-emerald-600 text-white py-2.5 rounded-lg text-xs font-bold hover:bg-emerald-500">
+                <i class="fa-solid fa-play mr-1"></i> Mulakan Perjalanan
+              </button>
+
+              <button onclick="completeTrip('${job.id}')" class="${showComplete} w-full bg-indigo-600 text-white py-2.5 rounded-lg text-xs font-bold hover:bg-indigo-500">
+                <i class="fa-solid fa-check-double mr-1"></i> Selesai Perjalanan
+              </button>
+
+              <button onclick="openReportModal('${job.id}')" class="w-full bg-red-900/50 text-red-300 border border-red-700 py-2 rounded-lg text-xs font-bold hover:bg-red-900/80">
+                <i class="fa-solid fa-shield-cat mr-1"></i> Laporkan Fake / Scam Order
+              </button>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    // -----------------------------------------------------------------
+    // 5. PENGAGIHAN PESANAN MASUK
     // -----------------------------------------------------------------
     function listenForOrders() {
       if (incomingOrdersListener) incomingOrdersListener();
@@ -384,11 +475,11 @@
           const list = document.getElementById('incomingOrdersList');
           
           if (isBusy) {
-            list.innerHTML = `<div class="text-center py-8 text-emerald-400 text-xs font-bold">Anda sedang dalam tugasan SEGERA atau perjalanan aktif. Tugasan baru ditangguhkan.</div>`;
-            document.getElementById('orderCountBadge').innerText = `Sibuk`;
+            list.innerHTML = `<div class="text-center py-8 text-emerald-400 text-xs font-bold">Anda sedang dalam tugasan SEGERA. Selesaikan tugasan segera dahulu.</div>`;
+            document.getElementById('orderCountBadge').innerText = `Sibuk (Segera)`;
             return;
           }
-          
+
           if (snapshot.empty) {
             list.innerHTML = `<div class="text-center py-8 text-gray-500 text-xs">Tiada tempahan berdekatan buat masa ini.</div>`;
             document.getElementById('orderCountBadge').innerText = `0 Permintaan`;
@@ -402,10 +493,8 @@
             const order = doc.data();
             const orderId = doc.id;
 
-            // Jika driver dah reject order ini sebelum ini, abaikan
             if (order.rejectedBy && order.rejectedBy.includes(currentDriver.uid)) return;
 
-            // Tapisan Kapasiti Penumpang
             const driverCapacity = driverProfileData.maxPassengers || 4;
             const orderPassengers = order.passengerCount || 1;
             if (orderPassengers > driverCapacity) return; 
@@ -414,24 +503,25 @@
 
             if (distToPickup <= 2.0 || order.expandedSearch === true) {
               
-              // --- SISTEM PING 1 DRIVER SAHAJA ---
-              // Jika pesanan telah di-lock untuk driver lain, abaikan
               if (order.pingedDriverId && order.pingedDriverId !== currentDriver.uid) return;
 
-              // Jika pesanan belum di-lock, kita lock pesanan ini untuk driver ini
               if (!order.pingedDriverId) {
                   db.collection('orders').doc(orderId).update({
                       pingedDriverId: currentDriver.uid
                   }).catch(e => console.log("Gagal ping order:", e));
-                  return; // Berhenti di sini, snapshot baru akan me-render selepas update berjaya
+                  return; 
               }
 
-              // Set Watcher untuk Alert Cancel (FIX 3)
-              // Kalau pelanggan cancel sewaktu driver tengok pesanan ini, popup merah akan keluar
               watchPendingOrder(orderId);
 
               visibleOrders++;
               
+              const pTime = order.pickupTime || 'Segera';
+              const isImmediate = pTime.toLowerCase() === 'segera' || pTime.toLowerCase() === 'immediate';
+              const timeDisplay = isImmediate 
+                  ? `<span class="bg-emerald-500 text-gray-900 px-2 py-0.5 rounded text-[10px] font-black">SEGERA</span>` 
+                  : `<span class="bg-amber-500 text-gray-900 px-2 py-0.5 rounded text-[10px] font-black">${pTime}</span>`;
+
               html += `
                 <div class="bg-gray-700/60 p-4 rounded-xl border border-gray-600 space-y-3 shadow-md">
                   <div class="flex justify-between items-start">
@@ -446,21 +536,16 @@
                     </div>
                   </div>
 
-                  <div class="text-xs space-y-1 text-gray-300">
-                    <p>桃 <strong>Pick Up:</strong> ${order.pickupAddress || 'Tidak dinyatakan'}</p>
-                    <p>潤 <strong>Drop Off:</strong> ${order.dropoffAddress || 'Tidak dinyatakan'}</p>
-                    ${order.notes ? `<p class="italic text-amber-200 bg-amber-900/30 p-1.5 rounded mt-1">統 "${order.notes}"</p>` : ''}
+                  <div class="text-xs space-y-1 text-gray-300 border-t border-gray-600 pt-2 mt-2">
+                    <p><i class="fa-regular fa-clock text-gray-400"></i> <strong>Masa Pick-up:</strong> ${timeDisplay}</p>
+                    <p class="mt-1">📍 <strong>Pick Up:</strong> ${order.pickupAddress || 'Tidak dinyatakan'}</p>
+                    <p>🚩 <strong>Drop Off:</strong> ${order.dropoffAddress || 'Tidak dinyatakan'}</p>
+                    ${order.notes ? `<p class="italic text-amber-200 bg-amber-900/30 p-1.5 rounded mt-1">🗣️ "${order.notes}"</p>` : ''}
                   </div>
 
                   <div class="grid grid-cols-2 gap-2 pt-2">
                     <button onclick="rejectOrder('${orderId}')" class="bg-gray-600 hover:bg-gray-500 text-white py-2 rounded-lg text-xs font-bold shadow">Reject</button>
                     <button onclick="openPriceActionModal('${orderId}', ${Math.round(order.originalPrice || 0)})" class="bg-emerald-500 hover:bg-emerald-400 text-gray-900 py-2 rounded-lg text-xs font-black shadow">Accept</button>
-                  </div>
-                  <div class="text-xs space-y-1 text-gray-300">
-                    <p>🕒 <strong class="text-blue-400">Masa Pick Up:</strong> <span class="text-amber-400 font-bold">${order.pickupTime && order.pickupTime !== 'Immediate' ? order.pickupTime : 'Segera (Immediate)'}</span></p>
-                    <p>📍 <strong>Pick Up:</strong> ${order.pickupAddress || 'Tidak dinyatakan'}</p>
-                    <p>🏁 <strong>Drop Off:</strong> ${order.dropoffAddress || 'Tidak dinyatakan'}</p>
-                    ${order.notes ? `<p class="italic text-amber-200 bg-amber-900/30 p-1.5 rounded mt-1">📝 "${order.notes}"</p>` : ''}
                   </div>
                 </div>
               `;
@@ -472,7 +557,6 @@
         });
     }
 
-// FIX 3: Fungsi pemerhati jika customer cancel semasa pesanan dalam senarai/belum accept
     function watchPendingOrder(orderId) {
         if (watchedPendingOrderId === orderId) return;
         if (pendingOrderListener) pendingOrderListener();
@@ -482,14 +566,13 @@
             if (doc.exists) {
                 const data = doc.data();
 
-                // TAMPALAN BARU: Hentikan pemerhati secara senyap jika pesanan ini telah beralih/diping kepada pemandu lain
                 if (data.pingedDriverId !== currentDriver.uid && data.driverId !== currentDriver.uid) {
                     if (pendingOrderListener) pendingOrderListener();
                     watchedPendingOrderId = null;
                     return; 
                 }
 
-                if (data.status === 'CANCELLED' && !isDriverCancelling) {
+                if (data.status === 'CANCELLED' && !driverCancellingIds.has(orderId)) {
                     document.getElementById('cancelAlertModal').classList.remove('hidden');
                     if (pendingOrderListener) pendingOrderListener();
                     watchedPendingOrderId = null;
@@ -497,6 +580,7 @@
             }
         });
     }
+
     function calculateDistance(lat1, lon1, lat2, lon2) {
       const R = 6371;
       const dLat = (lat2-lat1) * Math.PI / 180;
@@ -508,7 +592,7 @@
     }
 
     // -----------------------------------------------------------------
-    // 5. MODAL HARGA & ACCEPT ORDER
+    // 6. MODAL HARGA & ACCEPT ORDER
     // -----------------------------------------------------------------
     function openPriceActionModal(orderId, origPrice) {
       tempOrderId = orderId;
@@ -522,7 +606,7 @@
 
     function closePriceModal() {
       document.getElementById('priceActionModal').classList.add('hidden');
-      tempOrderId = null; // Reset order ID sementara
+      tempOrderId = null; 
     }
 
     function togglePriceActionFields() {
@@ -572,20 +656,13 @@
 
       try {
         await db.collection('orders').doc(tempOrderId).update(updateData);
-        isBusy = true; 
-        isDriverCancelling = false;
+        
         totalIncomingOrders++;
         totalAcceptedOrders++;
         updateDriverStatsInDB();
 
-        // FIX 1: Simpan order ID ke dalam pembolehubah lain sebelum closePriceModal (yang mana meletakkan tempOrderId = null)
-        const acceptedOrderId = tempOrderId; 
-        currentActiveJobDocId = acceptedOrderId;
-        
+        // Tidak perlu panggil loadActiveJob secara manual, activeJobsListener akan kendalikannya secara automatik
         closePriceModal(); 
-        listenForOrders(); 
-        loadActiveJob(acceptedOrderId); // Data customer akan dimuatkan tanpa gagal
-        
         showToast("Pesanan berjaya diambil!", "success");
       } catch (e) {
         showToast("Ralat, pesanan mungkin telah diambil.", "error");
@@ -594,7 +671,6 @@
     }
 
     async function rejectOrder(orderId) {
-      // FIX 2: Bila Reject, masukkan nama dalam list rejectedBy DAN lepaskan ping (null) supaya masuk ke driver lain
       await db.collection('orders').doc(orderId).update({
         rejectedBy: firebase.firestore.FieldValue.arrayUnion(currentDriver.uid),
         pingedDriverId: null 
@@ -618,126 +694,63 @@
     }
 
     // -----------------------------------------------------------------
-    // 6. ACTIVE JOB WORKFLOW
+    // 7. TINDAKAN PADA TUGASAN AKTIF
     // -----------------------------------------------------------------
-    function loadActiveJob(orderId) {
-      document.getElementById('activeJobSection').classList.remove('hidden');
-
-      // Kosongkan watcher pending jika kita sudah accept
-      if (pendingOrderListener) { pendingOrderListener(); watchedPendingOrderId = null; }
-
-      db.collection('orders').doc(orderId).onSnapshot(doc => {
-        if (!doc.exists) return;
-        const job = doc.data();
-
-        // Alert Cancel jika pelanggan batal selepas driver accept pesanan
-        if (job.status === 'CANCELLED' && !isDriverCancelling) {
-           document.getElementById('cancelAlertModal').classList.remove('hidden');
-           return;
-        }
-
-        const avatarUrl = job.customerPhoto && job.customerPhoto.trim() !== '' 
-            ? job.customerPhoto 
-            : `https://ui-avatars.com/api/?name=${encodeURIComponent(job.customerName || 'Pelanggan')}&background=random`;
-
-        document.getElementById('custPhoto').src = avatarUrl;
-        document.getElementById('custName').innerText = job.customerName || 'Pelanggan Tanpa Nama';
-        document.getElementById('custPassengers').innerText = job.passengerCount || 1;
-        document.getElementById('custNotes').innerText = job.notes ? `"${job.notes}"` : '"Tiada pesanan khas"';
-        document.getElementById('jobPickup').innerText = job.pickupAddress || 'Tidak dinyatakan';
-        document.getElementById('jobDropoff').innerText = job.dropoffAddress || 'Tidak dinyatakan';
-        document.getElementById('jobPrice').innerText = `RM ${Math.round(job.finalPrice || job.originalPrice || 0)}`;
-        document.getElementById('jobPayment').innerText = job.paymentMethod || 'TUNAI';
-        document.getElementById('activeJobStatus').innerText = job.status || 'ACCEPTED';
-
-        window.currentRouteCoords = {
-          pickLat: job.pickupLat, pickLng: job.pickupLng,
-          dropLat: job.dropoffLat, dropLng: job.dropoffLng
-        };
-      });
-    }
-
-    // FIX 3: Fungsi bila driver klik 'OK' pada Alert Cancel
     function acknowledgeCustomerCancel() {
         document.getElementById('cancelAlertModal').classList.add('hidden');
-        closePriceModal(); // Tutup modal jika tengah negotiate harga
-        resetActiveJobUI(); // Reset UI semula ke status menunggu pesanan
+        closePriceModal(); 
     }
 
-    function openOpenStreetMapNavigation() {
-      if (!window.currentRouteCoords) return;
-      const rc = window.currentRouteCoords;
-      const url = `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${rc.pickLat}%2C${rc.pickLng}%3B${rc.dropLat}%2C${rc.dropLng}`;
+    function openOpenStreetMapNavigation(pickLat, pickLng, dropLat, dropLng) {
+      const url = `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${pickLat}%2C${pickLng}%3B${dropLat}%2C${dropLng}`;
       window.open(url, '_blank');
     }
 
-    async function markArrived() {
-      if (!currentActiveJobDocId) return;
-
-      await db.collection('orders').doc(currentActiveJobDocId).update({
+    async function markArrived(orderId) {
+      await db.collection('orders').doc(orderId).update({
         status: 'ARRIVED',
         arrivedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
-
-      document.getElementById('btnArrived').classList.add('hidden');
-      document.getElementById('btnStartTrip').classList.remove('hidden');
       showToast("Telah maklumkan pelanggan bahawa anda sampai.", "success");
     }
 
-    async function startTrip() {
-      if (autoCancelTimer) clearTimeout(autoCancelTimer);
-
-      await db.collection('orders').doc(currentActiveJobDocId).update({ status: 'IN_PROGRESS' });
-      document.getElementById('btnStartTrip').classList.add('hidden');
-      document.getElementById('btnCompleteTrip').classList.remove('hidden');
+    async function startTrip(orderId) {
+      await db.collection('orders').doc(orderId).update({ status: 'IN_PROGRESS' });
       showToast("Perjalanan bermula.", "warning");
     }
 
-    async function completeTrip() {
-      const doc = await db.collection('orders').doc(currentActiveJobDocId).get();
-      await db.collection('orders').doc(currentActiveJobDocId).update({ status: 'COMPLETED' });
+    async function completeTrip(orderId) {
+      const doc = await db.collection('orders').doc(orderId).get();
+      await db.collection('orders').doc(orderId).update({ status: 'COMPLETED' });
       
       showToast("Selesai! Terima Kasih.", "success");
       syncToGoogleSheet(doc.data(), 'COMPLETED');
-      resetActiveJobUI();
     }
 
-    function openReportModal() {
+    function openReportModal(orderId) {
+        tempReportOrderId = orderId;
         document.getElementById('reportReason').value = '';
         document.getElementById('reportModal').classList.remove('hidden');
     }
     
     function closeReportModal() {
         document.getElementById('reportModal').classList.add('hidden');
+        tempReportOrderId = null;
     }
 
     async function submitReportOrder() {
+      if (!tempReportOrderId) return;
       const reason = document.getElementById('reportReason').value;
       if (!reason) return showToast("Sila masukkan sebab laporan.", "error");
 
-      isDriverCancelling = true; 
-      const doc = await db.collection('orders').doc(currentActiveJobDocId).get();
-      await db.collection('orders').doc(currentActiveJobDocId).update({ status: 'CANCELLED', cancelReason: reason });
+      driverCancellingIds.add(tempReportOrderId); 
+      const doc = await db.collection('orders').doc(tempReportOrderId).get();
+      await db.collection('orders').doc(tempReportOrderId).update({ status: 'CANCELLED', cancelReason: reason });
       
       showToast("Laporan telah dihantar. Pesanan ditamatkan.", "success");
       syncToGoogleSheet(doc.data(), `SCAM REPORT: ${reason}`);
       
       closeReportModal();
-      resetActiveJobUI();
-    }
-
-    function resetActiveJobUI() {
-      currentActiveJobDocId = null;
-      isBusy = false; 
-      isDriverCancelling = false;
-      if (pendingOrderListener) { pendingOrderListener(); watchedPendingOrderId = null; }
-      
-      document.getElementById('activeJobSection').classList.add('hidden');
-      document.getElementById('btnArrived').classList.remove('hidden');
-      document.getElementById('btnStartTrip').classList.add('hidden');
-      document.getElementById('btnCompleteTrip').classList.add('hidden');
-      
-      listenForOrders(); 
     }
 
     function syncToGoogleSheet(orderData, forceStatus = null) {
@@ -761,10 +774,6 @@
         body: JSON.stringify(payload)
       }).catch(err => console.log("Gagal sync ke Google Sheets:", err));
     }
-  </script>
-</body>
-</html>
-
   </script>
 </body>
 </html>
