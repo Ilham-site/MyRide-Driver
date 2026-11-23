@@ -258,17 +258,37 @@
     // -----------------------------------------------------------------
     // 2. AUTHENTICATION & DRIVER PROFILE 
     // -----------------------------------------------------------------
+    function isAllowedUkmEmail(email) {
+      if (!email || typeof email !== "string") return false;
+      const normalized = email.trim().toLowerCase();
+      return normalized.endsWith("@siswa.ukm.edu.my") || normalized.endsWith("@ukm.my");
+    }
+
     function googleLogin() {
       const provider = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider).catch(err => showToast("Ralat Log Masuk: " + err.message, "error"));
+      provider.setCustomParameters({ prompt: "select_account" });
+      auth.signInWithPopup(provider)
+        .then(async (result) => {
+          if (!isAllowedUkmEmail(result.user.email)) {
+            await auth.signOut();
+            showToast("Akses ditolak! Hanya email @siswa.ukm.edu.my atau @ukm.my sahaja dibenarkan.", "error");
+          }
+        })
+        .catch(err => showToast("Ralat Log Masuk: " + err.message, "error"));
     }
 
     function googleLogout() {
       auth.signOut().then(() => { location.reload(); });
     }
 
-    auth.onAuthStateChanged(user => {
+    auth.onAuthStateChanged(async (user) => {
       if (user) {
+        if (!isAllowedUkmEmail(user.email)) {
+          currentDriver = null;
+          await auth.signOut();
+          showToast("Hanya email @siswa.ukm.edu.my atau @ukm.my sahaja boleh log masuk.", "error");
+          return;
+        }
         currentDriver = user;
         initDriverProfile();
       }
@@ -489,7 +509,7 @@
             <div class="pt-1">
               <h4 class="font-bold text-sm text-white">${job.customerName || 'Pelanggan'}</h4>
               <p class="text-xs text-gray-400 mt-1">📍 <strong>Pick Up:</strong> ${job.pickupAddress}</p>
-              <p class="text-xs text-gray-400">🚩 <strong>Drop Off:</strong> ${job.dropoffAddress}</p>
+              <p class="text-xs text-gray-400">🏁 <strong>Drop Off:</strong> ${job.dropoffAddress}</p>
               <p class="text-[11px] font-bold text-amber-400 mt-1">Tambang: RM ${Math.round(job.finalPrice || 0)}</p>
             </div>
 
@@ -590,8 +610,8 @@
                   <div class="text-xs space-y-1 text-gray-300 border-t border-gray-600 pt-2 mt-2">
                     <p class="mb-1">${timeDisplay}</p>
                     <p class="mt-1">📍 <strong>Pick Up:</strong> ${order.pickupAddress || 'Tidak dinyatakan'}</p>
-                    <p>🚩 <strong>Drop Off:</strong> ${order.dropoffAddress || 'Tidak dinyatakan'}</p>
-                    ${order.notes ? `<p class="italic text-amber-200 bg-amber-900/30 p-1.5 rounded mt-1">🗣️ "${order.notes}"</p>` : ''}
+                    <p>🏁 <strong>Drop Off:</strong> ${order.dropoffAddress || 'Tidak dinyatakan'}</p>
+                    ${order.notes ? `<p class="italic text-amber-200 bg-amber-900/30 p-1.5 rounded mt-1">💬 "${order.notes}"</p>` : ''}
                   </div>
 
                   <div class="grid grid-cols-2 gap-2 pt-2">
@@ -836,4 +856,4 @@
     }
   </script>
 </body>
-</html>
+</html>>
