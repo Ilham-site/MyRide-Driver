@@ -782,7 +782,7 @@
     }
 
     function openOpenStreetMapNavigation(pickLat, pickLng, dropLat, dropLng) {
-      const url = `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${pickLat}%2C${pickLng}%3B${dropLat}%2C${dropLng}`;
+      const url = `https://www.google.com/maps/dir/?api=1&origin=${pickLat},${pickLng}&destination=${dropLat},${dropLng}&travelmode=driving`;
       window.open(url, '_blank');
     }
 
